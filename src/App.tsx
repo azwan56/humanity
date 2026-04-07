@@ -7,9 +7,15 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, ArrowRight, RefreshCw, CheckCircle, XCircle, Map, Sparkles, Compass, Lock, Unlock, PlayCircle } from 'lucide-react';
 import { LEVELS_DATA, Question } from './constants';
+import { User } from 'firebase/auth';
+import AuthModal from './components/AuthModal';
+import UserMenu from './components/UserMenu';
+import { listenToAuthChanges, updateHumanityLevel } from './services/firebaseService';
 
 export default function App() {
   const [gameState, setGameState] = useState<'start' | 'levels' | 'playing' | 'level_finished' | 'all_clear'>('start');
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [unlockedLevel, setUnlockedLevel] = useState<number>(1);
   const [playingLevel, setPlayingLevel] = useState<number>(1);
   const [currentQuestions, setCurrentQuestions] = useState<Question[]>([]);
@@ -24,6 +30,13 @@ export default function App() {
     if (savedLevel) {
       setUnlockedLevel(parseInt(savedLevel, 10));
     }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = listenToAuthChanges((currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
   }, []);
 
   const totalLevels = 10;
@@ -66,6 +79,9 @@ export default function App() {
         const nextLevel = unlockedLevel + 1;
         setUnlockedLevel(nextLevel);
         localStorage.setItem('humanity_unlocked_level', nextLevel.toString());
+        if (user) {
+          updateHumanityLevel(user, nextLevel);
+        }
       }
     }
   };
@@ -80,8 +96,16 @@ export default function App() {
         <Compass size={120} />
       </motion.div>
 
-      <header className="mb-6 md:mb-10 text-center relative z-10 pt-4">
-        <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 100 }}>
+      <header className="mb-6 md:mb-10 text-center relative z-10 pt-4 w-full">
+        <div className="absolute top-0 right-0 left-0 flex justify-between items-center w-full max-w-6xl mx-auto px-2 md:px-0">
+          <div>
+            <a href="https://k12.vanpower.live" className="text-white hover:text-white/80 transition-colors bg-white/20 px-4 py-2 rounded-full font-bold text-sm border border-white/40 drop-shadow-sm flex items-center gap-2 backdrop-blur-sm shadow-md">
+                <Compass className="w-4 h-4" /> Vanpower K12
+            </a>
+          </div>
+          <UserMenu user={user} onOpenAuth={() => setIsAuthModalOpen(true)} />
+        </div>
+        <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 100 }} className="mt-14 md:mt-16">
           <h1 className="text-3xl md:text-5xl font-black text-white drop-shadow-md mb-2 flex items-center justify-center gap-2">
             <Sparkles className="text-yellow-300 w-6 h-6 md:w-8 md:h-8" />
             中华历史地理大闯关
@@ -254,6 +278,8 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }
