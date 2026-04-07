@@ -8,6 +8,67 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script>
+  (function() {
+    var hash = window.location.hash;
+    if (hash.indexOf('auth_sync=') !== -1) {
+      try {
+        var payloadObj = hash.split('auth_sync=')[1];
+        if (payloadObj) {
+            var payload = decodeURIComponent(payloadObj);
+            var data = JSON.parse(payload);
+            if (data && Array.isArray(data)) {
+              var req = indexedDB.open('firebaseLocalStorageDb');
+              req.onupgradeneeded = function(e) {
+                var db = e.target.result;
+                if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+                  db.createObjectStore('firebaseLocalStorage');
+                }
+              };
+              req.onsuccess = function(e) {
+                var db = e.target.result;
+                if (!db.objectStoreNames.contains('firebaseLocalStorage')) {
+                   var newVersion = db.version + 1;
+                   db.close();
+                   var upgradeReq = indexedDB.open('firebaseLocalStorageDb', newVersion);
+                   upgradeReq.onupgradeneeded = function(ev) {
+                       ev.target.result.createObjectStore('firebaseLocalStorage');
+                   };
+                   upgradeReq.onsuccess = function(ev) {
+                       writeAndReload(ev.target.result, data);
+                   };
+                } else {
+                   writeAndReload(db, data);
+                }
+              };
+            }
+        }
+      } catch (err) {
+        console.error("SSO inject failed", err);
+        window.location.hash = '';
+      }
+    }
+    function writeAndReload(db, records) {
+      var tx = db.transaction('firebaseLocalStorage', 'readwrite');
+      var store = tx.objectStore('firebaseLocalStorage');
+      var pending = records.length;
+      if (pending === 0) { finish(); return; }
+      records.forEach(function(record) {
+        var putReq = store.put(record.value, record.fbase_key);
+        putReq.onsuccess = function() {
+           pending--; if (pending === 0) finish();
+        };
+        putReq.onerror = function() {
+           pending--; if (pending === 0) finish();
+        }
+      });
+      function finish() {
+        window.location.hash = '';
+        window.location.reload();
+      }
+    }
+  })();
+</script>
   </head>
   <body class="font-sans antialiased text-slate-800">
     <div id="root"></div>
