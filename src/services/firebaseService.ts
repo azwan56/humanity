@@ -91,14 +91,26 @@ export const checkAndCreateUserProfile = async (user: User) => {
   }
 };
 
-export const updateHumanityLevel = async (user: User, level: number) => {
+export const updateHumanityLevel = async (user: User, level: number, season: number = 1) => {
   try {
     const userRef = doc(db, 'users', user.uid);
     const docSnap = await getDoc(userRef);
     if (docSnap.exists()) {
-      const currentLevel = docSnap.data().humanity_level || 1;
-      if (level > currentLevel) {
-        await setDoc(userRef, { humanity_level: level }, { merge: true });
+      if (season === 1) {
+        const currentLevel = docSnap.data().humanity_level || 1;
+        if (level > currentLevel) {
+          await setDoc(userRef, { humanity_level: level }, { merge: true });
+        }
+      } else if (season === 2) {
+        const currentLevel = docSnap.data().humanity_s2_level || 1;
+        if (level > currentLevel) {
+          await setDoc(userRef, { humanity_s2_level: level }, { merge: true });
+        }
+      } else if (season === 3) {
+        const currentLevel = docSnap.data().humanity_s3_level || 1;
+        if (level > currentLevel) {
+          await setDoc(userRef, { humanity_s3_level: level }, { merge: true });
+        }
       }
     }
   } catch (e) {

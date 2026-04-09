@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, ArrowRight, RefreshCw, CheckCircle, XCircle, Map, Sparkles, Compass, Lock, Unlock, PlayCircle } from 'lucide-react';
-import { LEVELS_DATA, Question } from './constants';
+import { SEASON_1_DATA, SEASON_2_DATA, SEASON_3_DATA, Question } from './constants';
 import { User } from 'firebase/auth';
 import AuthModal from './components/AuthModal';
 import UserMenu from './components/UserMenu';
@@ -16,7 +16,10 @@ export default function App() {
   const [gameState, setGameState] = useState<'start' | 'levels' | 'playing' | 'level_finished' | 'all_clear'>('start');
   const [user, setUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [unlockedLevel, setUnlockedLevel] = useState<number>(1);
+  const [currentSeason, setCurrentSeason] = useState<1 | 2 | 3>(1);
+  const [unlockedLevelS1, setUnlockedLevelS1] = useState<number>(1);
+  const [unlockedLevelS2, setUnlockedLevelS2] = useState<number>(1);
+  const [unlockedLevelS3, setUnlockedLevelS3] = useState<number>(1);
   const [playingLevel, setPlayingLevel] = useState<number>(1);
   const [currentQuestions, setCurrentQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -24,11 +27,21 @@ export default function App() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
+  const unlockedLevel = currentSeason === 1 ? unlockedLevelS1 : (currentSeason === 2 ? unlockedLevelS2 : unlockedLevelS3);
+
   // 初始化读取本地存档
   useEffect(() => {
-    const savedLevel = localStorage.getItem('humanity_unlocked_level');
-    if (savedLevel) {
-      setUnlockedLevel(parseInt(savedLevel, 10));
+    const savedLevelS1 = localStorage.getItem('humanity_unlocked_level');
+    if (savedLevelS1) {
+      setUnlockedLevelS1(parseInt(savedLevelS1, 10));
+    }
+    const savedLevelS2 = localStorage.getItem('humanity_s2_unlocked_level');
+    if (savedLevelS2) {
+      setUnlockedLevelS2(parseInt(savedLevelS2, 10));
+    }
+    const savedLevelS3 = localStorage.getItem('humanity_s3_unlocked_level');
+    if (savedLevelS3) {
+      setUnlockedLevelS3(parseInt(savedLevelS3, 10));
     }
   }, []);
 
@@ -44,7 +57,11 @@ export default function App() {
   const passingScore = 5;
 
   const startLevel = (level: number) => {
-    const pool = LEVELS_DATA[level - 1] || LEVELS_DATA[0];
+    const pool = currentSeason === 1
+      ? (SEASON_1_DATA[level - 1] || SEASON_1_DATA[0])
+      : currentSeason === 2
+        ? (SEASON_2_DATA[level - 1] || SEASON_2_DATA[0])
+        : (SEASON_3_DATA[level - 1] || SEASON_3_DATA[0]);
     // 随机打乱题库并抽取 5 题
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
     setCurrentQuestions(shuffled.slice(0, questionsPerRound));
@@ -77,10 +94,18 @@ export default function App() {
       setGameState('level_finished');
       if (score >= passingScore && playingLevel === unlockedLevel && unlockedLevel < totalLevels) {
         const nextLevel = unlockedLevel + 1;
-        setUnlockedLevel(nextLevel);
-        localStorage.setItem('humanity_unlocked_level', nextLevel.toString());
+        if (currentSeason === 1) {
+          setUnlockedLevelS1(nextLevel);
+          localStorage.setItem('humanity_unlocked_level', nextLevel.toString());
+        } else if (currentSeason === 2) {
+          setUnlockedLevelS2(nextLevel);
+          localStorage.setItem('humanity_s2_unlocked_level', nextLevel.toString());
+        } else {
+          setUnlockedLevelS3(nextLevel);
+          localStorage.setItem('humanity_s3_unlocked_level', nextLevel.toString());
+        }
         if (user) {
-          updateHumanityLevel(user, nextLevel);
+          updateHumanityLevel(user, nextLevel, currentSeason);
         }
       }
     }
@@ -135,7 +160,29 @@ export default function App() {
           {gameState === 'levels' && (
             <motion.div key="levels" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="glass p-6 md:p-10 rounded-[2rem] w-full text-center">
               <h2 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">选择关卡</h2>
-              <p className="text-slate-600 mb-8 font-medium">每关随机 5 题，必须全对才能解锁下一关！</p>
+              
+              <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-4">
+                <button 
+                  onClick={() => setCurrentSeason(1)}
+                  className={`px-4 md:px-6 py-2 rounded-full font-bold transition-all text-sm md:text-base ${currentSeason === 1 ? 'bg-pink-500 text-white shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white/80'}`}
+                >
+                  第一季 (综合历史地理)
+                </button>
+                <button 
+                  onClick={() => setCurrentSeason(2)}
+                  className={`px-4 md:px-6 py-2 rounded-full font-bold transition-all text-sm md:text-base ${currentSeason === 2 ? 'bg-violet-500 text-white shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white/80'}`}
+                >
+                  第二季 (春秋战国两汉)
+                </button>
+                <button 
+                  onClick={() => setCurrentSeason(3)}
+                  className={`px-4 md:px-6 py-2 rounded-full font-bold transition-all text-sm md:text-base ${currentSeason === 3 ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/50 text-slate-600 hover:bg-white/80'}`}
+                >
+                  第三季 (壮美中国地理)
+                </button>
+              </div>
+              
+              <p className="text-slate-600 mb-6 font-medium text-sm md:text-base">每关随机 5 题，必须全对才能解锁下一关！</p>
               
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {Array.from({ length: totalLevels }).map((_, index) => {
